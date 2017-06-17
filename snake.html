@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+	<title>Snake!</title>
+	<script type="text/javascript" src = "scripts/jquery-3.2.0.js"></script>
+</head>
+<body>
+<canvas width="400" height="400" id="canvas"></canvas>
+<script type="text/javascript">
+	$(function(){
+		var canvas = document.getElementById('canvas');
+		var ctx = canvas.getContext("2d");
+		var width = canvas.width;
+		var height = canvas.height;
+		var blockSize = 10 ;
+		var widthInBlocks = width/blockSize;
+		var heightInBlocks = height/blockSize;
+		var score = 0;
+		var drawBorder = function(){
+			ctx.fillStyle = "gray";
+			ctx.fillRect(0,0,width,blockSize);
+			ctx.fillRect(0,width-blockSize,width,blockSize);
+			ctx.fillRect(0,0,blockSize,height);
+			ctx.fillRect(width-blockSize,0,blockSize,height);
+		};                                                                                  
+		drawBorder();
+		var drawScore = function(){
+			 ctx.textBaseline = "top";
+			 ctx.font = "24px Courier";
+			 ctx.textAlign = "left";
+			 ctx.fillText('Score:'+score,blockSize,blockSize);
+		}
+		drawScore(); 
+		var gameOver = function(){
+			clearInterval(intervalId);
+			ctx.font = "60px Courier";
+			ctx.fillStyle = "black";
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.fillText("Game Over",width/2,height/2);
+		};
+
+		var Block = function(col,row){
+			this.col = col;
+			this.row = row;
+			this.x = this.col*blockSize;
+			this.y = this.row*blockSize;
+		};
+		Block.prototype.drawBlock = function(color){
+			ctx.fillStyle = color;
+			ctx.fillRect(this.x,this.y,blockSize,blockSize);
+		};
+		var circle = function(x,y,radius,fillCircle){
+			ctx.beginPath();       
+			ctx.arc (x,y,radius,0,Math.PI*2,true);
+			if(fillCircle) ctx.fill();
+			else ctx.stroke();
+		}
+		Block.prototype.drawCircle = function(color){
+			ctx.fillStyle = color;
+			var x = this.x + blockSize/2;
+			var y = this.y + blockSize/2;
+			circle(x,y,blockSize/2,true);
+		};
+		Block.prototype.equal = function(otherBlock){
+			return this.col === otherBlock.col && this.row === otherBlock.row;
+		};
+		var Snake = function(){
+			this.segments = [
+				new Block(7,5),
+				new Block(6,5),
+				new Block(5,5)
+			];//初始位置设定
+			this.direction = "right";
+			this.nextDirection = "right";
+		};
+		Snake.prototype.draw = function(){
+			for(var i = 0;i <this.segments.length;i++){
+				this.segments[i].drawBlock('black');
+			}
+			// 使用for循环在segments数组的每一个块对象对象上运行。每一次循环中，这段代码都接受当前的段(this.segments[i])并且在其上调用drawBlock('black')方法，这会在相应的块上绘制一个黑色的方块。
+		};
+		// 我们将创建一个move方法，沿着贪吃蛇当前方向将其移动一个块。为了移动贪吃蛇，我们添加了一个新的头部段（在segment数组的开头添加了一个新的block对象），然后，从segments数组中删除尾部段。
+		// move方法还将调用一个checkCollision方法，来查看新的头部是否与贪吃蛇其他部分或者墙发生碰撞，以及新的头部是否吃到了苹果。如果新的头部与身体或者墙面发生碰撞，调用gameOver函数结束游戏。如果贪吃蛇迟到苹果，我们增加分数，并且将苹果移动到新的位置。
+		Snake.prototype.move = function(){
+			var head = this.segments[0];
+			var newHead;
+			this.direction = this.nextDirection;
+			if(this.direction == "right"){
+				newHead = new Block(head.col+1,head.row);
+			}else if(this.direction == "down"){
+				newHead = new Block(head.col,head.row+1);
+			}else if(this.direction == "left"){
+				newHead = new Block(head.col-1,head.row);
+			}else if(this.direction == "up"){
+				newHead = new Block(head.col,head.row-1);
+			}
+			if(this.checkCollision(newHead)){
+				gameOver();
+				return;
+			}
+			this.segments.unshift(newHead);
+			if(this.segments[0].equal(apple.position)){
+				score++;
+				apple.move();
+			}else{
+				this.segments.pop();
+			}
+		};
+		Snake.prototype.checkCollision = function(head){
+			var leftCollision = (head.col == 0);
+			var rightCollision = (head.col == widthInBlocks - 1 );
+			var topCollision = (head.row == 0);
+			var bottomCollision = (head.row == heightInBlocks - 1);
+			var wallCollision = (leftCollision||rightCollision||topCollision||bottomCollision);
+			var selfCollision = false;
+			for(var i = 0;i<this.segments.length;i++){
+				if(head.equal(this.segments[i])){
+					selfCollision = true;
+				}
+			}
+			return (selfCollision||wallCollision);
+
+		}
+
+		Snake.prototype.setDirection = function(newDirection){
+			if(this.direction == "up" && newDirection == "down"){
+				return;
+			}else if(this.direction == "right" && newDirection == "left"){
+				return;
+			}else if(this.direction == "down" && newDirection == "up"){
+				return;
+			}else if(this.direction == "left" && newDirection == "right"){
+				return;
+			}
+			this.nextDirection = newDirection;
+		};
+		var Apple = function(){
+			this.position = new Block(10,10);
+		};
+		Apple.prototype.draw = function(){
+			this.position.drawCircle("red");
+		};
+		Apple.prototype.move = function(){
+			var randomCol = Math.floor(Math.random()*(widthInBlocks-2))+1;
+			var randomRow = Math.floor(Math.random()*(heightInBlocks-2))+1;
+			this.position = new Block(randomCol,randomRow);
+		};
+		var snake = new Snake;
+		var apple = new Apple;
+		var intervalId =  setInterval(function(){
+		 	ctx.clearRect(blockSize,blockSize,width-2*blockSize,height-2*blockSize);
+		 	drawScore();
+		 	snake.move();
+		 	snake.draw();
+		 	apple.draw();
+		 },200); 
+		var directions = {
+			37:"left",
+			38:"up",
+			39:"right",
+			40:"down"
+		};
+		$('body').keydown(function(event){
+			var newDirection = directions[event.keyCode];
+			if(newDirection !== undefined){
+				snake.setDirection(newDirection);
+			}
+		});		
+	});
+</script>
+</body>
+</html>
